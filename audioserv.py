@@ -78,6 +78,7 @@ class User:
         self.systemtime = int(time.time())
         self.pubkey = pubkey
         print("Making user with name " + self.name)
+        self.publish(self.ctlchan,['~','PUBKEY',self.session.serverpubkey])
 
     def publish(self, channel, arguments):
         encrypted_arguments = []
@@ -85,46 +86,51 @@ class User:
             encrypted_arguments.append(rsa.encrypt(argument,self.pubkey))
         yield from self.session.publish(channel, encrypted_arguments)
 
-    def ctlCallback(self, *command):
-        print(command[0])
-        if (command[0] == "PING"):
+    def ctlCallback(self, *commands):
+        print(commands[0])
+        for i in 0..len(commands):
+            commands[i] = rsa.decrypt(commands[i],self.session.serverprivkey)
+        if (commands[0] == "PING"):
             self.systemtime = int(time.time())
             return
-        print(command[1])
-        if (command[0] == "JOINCHANNEL" and self.session.findChannel(command[1]) != -1):
-            self.channel = command[1]
-            self.session.findChannel(command[1]).addUser(self.name)
-            self.publish(self.ctlchan, [':', 'JOINCHANNEL', command[1]])
+        print(commands[1])
+        if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1):
+            self.channel = commands[1]
+            self.session.findChannel(commands[1]).addUser(self.name)
+            self.publish(self.ctlchan, [':', 'JOINCHANNEL', commands[1]])
             return
-        elif(command[0] == "JOINCHANNEL"):
+        elif(commands[0] == "JOINCHANNEL"):
             self.publish(self.ctlchan, [':', 'ERR', 'CHANNOTFOUND'])
             return
-        if (command[0] == "LEAVECHANNEL" and self.session.findChannel(command[1]) != -1 and (self.channel == command[1])):
+        if (commands[0] == "LEAVECHANNEL" and self.session.findChannel(commands[1]) != -1 and (self.channel == commands[1])):
             self.channel = ""
-            self.session.findChannel(command[1]).removeUser(self.name)
-            self.publish(self.ctlchan, [':', 'LEAVECHANNEL', command[1]])
+            self.session.findChannel(commands[1]).removeUser(self.name)
+            self.publish(self.ctlchan, [':', 'LEAVECHANNEL', commands[1]])
             return
-        elif(command[0] == "LEAVECHANNEL"):
+        if (commands[0] == "QUIT"):
+            self.__destructor__()
+            return
+        elif(commands[0] == "LEAVECHANNEL"):
             self.publish(self.ctlchan, [':', 'ERR', 'CHANNOTFOUND'])
             return
-        if (command[0] == "MKCHANNEL") and (self.session.findChannel(command[1]) == -1 and command[1] != ""):
-            print('Creating channel with name ' + command[1])
-            self.session.channelarr.append(Channel(command[1],self.session))
+        if (commands[0] == "MKCHANNEL") and (self.session.findChannel(commands[1]) == -1 and commands[1] != ""):
+            print('Creating channel with name ' + commands[1])
+            self.session.channelarr.append(Channel(commands[1],self.session))
             return
-        elif(command[0] == "MKCHANNEL"):
+        elif(commands[0] == "MKCHANNEL"):
             self.publish(self.ctlchan, [':', 'ERR', 'CHANALREADYEXISTS'])
             return
-        if (command[0] == "RMCHANNEL") and (self.session.findChannel(command[1]) != -1 and command[1] != ""):
-            print('Deleting channel with name ' + command[1])
-            obj = self.session.findChannel(command[1])
+        if (commands[0] == "RMCHANNEL") and (self.session.findChannel(commands[1]) != -1 and commands[1] != ""):
+            print('Deleting channel with name ' + commands[1])
+            obj = self.session.findChannel(commands[1])
             if(obj != -1):
                 obj.__destructor__()
                 self.session.removeChannel(obj)
             return
-        elif(command[0] == "RMCHANNEL"):
+        elif(commands[0] == "RMCHANNEL"):
             self.publish(self.ctlchan,[':','ERR','CHANNOTFOUND'])
             return
-        if (command[0] == "CHANNAMES"):
+        if (commands[0] == "CHANNAMES"):
             for channel in self.session.channelarr:
                 self.publish(self.ctlchan, [':', 'CHANNAME', channel.name])
             return
@@ -193,10 +199,11 @@ class Server(ApplicationSession):
         self.initialize()
         yield from self.subscribe(self.onMainCtlEvent, u"com.audioctl.main")
         yield from self.pruneLoop()
+
     def initialize(self):
         self.userarr = []
         self.channelarr = []
-        (self.serverpubkey, self.serverprivkey) = rsa.newkeys(512)
+        (self.serverpubkey, self.serverprivkey) = rsa.newkeys(1536)
 
 
 runner = ApplicationRunner(u"ws://127.0.0.1:8080/ws", u"realm1")
