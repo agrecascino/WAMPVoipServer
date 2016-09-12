@@ -4,7 +4,7 @@ import rsa
 import time
 from autobahn.wamp.types import SubscribeOptions
 from autobahn.asyncio.wamp import ApplicationSession, ApplicationRunner
-
+import base64
 class Channel:
     def __init__(self, name,session):
         self.name = name
@@ -76,15 +76,19 @@ class User:
         self.channel = ""
         self.role = "user"
         self.systemtime = int(time.time())
-        self.pubkey = pubkey
+        self.pubkey = base64.b64decode(pubkey)
+        print(pubkey)
         print("Making user with name " + self.name)
+        print("Attaching channel " + self.ctlchan)
         self.publish(self.ctlchan,['~','PUBKEY',self.session.serverpubkey])
 
     def publish(self, channel, arguments):
+        print("publishing")
         encrypted_arguments = []
         for argument in arguments:
             encrypted_arguments.append(rsa.encrypt(argument,self.pubkey))
-        yield from self.session.publish(channel, encrypted_arguments)
+        #yield from self.session.publish(channel, encrypted_arguments)
+        print("sent")
 
     def ctlCallback(self, *commands):
         print(commands[0])
@@ -187,7 +191,7 @@ class Server(ApplicationSession):
         for user in self.userarr:
             if((int(time.time() - user.systemtime)) > 5):
                 user.__destructor__()
-                removeUser(user)
+                self.removeUser(user)
 
     def onMainCtlEvent(self, *command):
         if(command[0] == "NICK" and (self.findUser(command[1])) == -1):
