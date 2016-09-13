@@ -76,18 +76,23 @@ class User:
         self.channel = ""
         self.role = "user"
         self.systemtime = int(time.time())
-        self.pubkey = base64.b64decode(pubkey)
+        self.pubkey = rsa.PublicKey.load_pkcs1(base64.b64decode(pubkey),'DER')
         print(pubkey)
         print("Making user with name " + self.name)
         print("Attaching channel " + self.ctlchan)
-        self.publish(self.ctlchan,['~','PUBKEY',self.session.serverpubkey])
+        print(base64.b64encode(self.session.serverpubkey.save_pkcs1('DER')))
+        self.publish(self.ctlchan,['~','PUBKEY',str(base64.b64encode(self.session.serverpubkey.save_pkcs1('DER')))])
 
     def publish(self, channel, arguments):
         print("publishing")
         encrypted_arguments = []
+        if arguments[0] == '~':
+           yield from self.session.publish(channel,arguments)
+           return
         for argument in arguments:
-            encrypted_arguments.append(rsa.encrypt(argument,self.pubkey))
-        #yield from self.session.publish(channel, encrypted_arguments)
+            print(argument)
+            encrypted_arguments.append(rsa.encrypt(bytearray(argument,'utf8'),self.pubkey))
+        yield from self.session.publish(channel, encrypted_arguments)
         print("sent")
 
     def ctlCallback(self, *commands):
