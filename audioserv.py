@@ -77,11 +77,10 @@ class User:
         self.role = "user"
         self.subscription = None
         self.systemtime = int(time.time())
-        print(pubkey)
         self.pubkey = rsa.PublicKey.load_pkcs1(base64.b64decode(pubkey),'DER')
         print("Making user with name " + self.name)
         print("Attaching channel " + self.ctlchan)
-        self.publish(self.ctlchan,['~','PUBKEY',(base64.b64encode(self.session.serverpubkey.save_pkcs1('DER'))).decode('UTF-8')])
+        self.publish(self.ctlchan,['~','PUBKEY',str(base64.b64encode(self.session.serverpubkey.save_pkcs1('DER')))])
 
     def publish(self, channel, arguments):
         print("publishing")
