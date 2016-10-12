@@ -22,10 +22,13 @@ class Channel:
     def addUser(self,name):
         self.broadcastToChannelUsers(name,['NEWCHANUSER',self.name,name])
         self.users.append(name)
+        listener = self.session.findUser(name)
+        names = [':','CHANUSERNAMES']
         for username in self.users:
             user = self.session.findUser(username)
             if (user != -1):
-                self.publish(user.ctlchan, user.name)
+               names.append(username)
+        listener.publish(user.ctlchan, names)
 
 
     def removeUser(self,name):
@@ -80,7 +83,7 @@ class User:
         self.pubkey = rsa.PublicKey.load_pkcs1(base64.b64decode(pubkey),'DER')
         print("Making user with name " + self.name)
         print("Attaching channel " + self.ctlchan)
-        self.publish(self.ctlchan,['~','PUBKEY',str(base64.b64encode(self.session.serverpubkey.save_pkcs1('DER')))])
+        self.publish(self.ctlchan,['~','PUBKEY',base64.b64encode(self.session.serverpubkey.save_pkcs1('DER')).decode('UTF-8')])
 
     def publish(self, channel, arguments):
         print("publishing")
@@ -94,29 +97,34 @@ class User:
            print("snek")
            return
         for argument in arguments:
-            print(argument)
-            encrypted_arguments.append(str(base64.b64encode(rsa.encrypt(bytearray(argument,'utf-8'),self.pubkey)).decode('UTF-8')))
+            print(type(argument))
+            if not isinstance(argument, bytes):
+                bytearr = bytes(argument,'UTF-8')
+            else:
+                bytearr = argument
+            encrypted_arguments.append(str(base64.b64encode(rsa.encrypt(bytearr,self.pubkey)).decode('UTF-8')))
         for i in range(len(encrypted_arguments)):
             print(encrypted_arguments[i])
         self.session.publish(channel, encrypted_arguments)
         print("sent")
 
     def ctlCallback(self, *commands_tuple):
-        print(commands_tuple[0])
         commands = []
         for i in range(len(commands_tuple)):
             commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("utf-8"))
         if (commands[0] == "PING"):
             self.systemtime = int(time.time())
             return
-        print(commands[0])
-        if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1):
+        if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1 and self.channel != commands[1]):
             self.channel = commands[1]
             self.session.findChannel(commands[1]).addUser(self.name)
             self.publish(self.ctlchan, [':', 'JOINCHANNEL', commands[1]])
             return
-        elif(commands[0] == "JOINCHANNEL"):
+        elif(commands[0] == "JOINCHANNEL" and self.channel != commands[1]):
             self.publish(self.ctlchan, [':', 'ERR', 'CHANNOTFOUND'])
+            return
+        elif(commands[0] == "JOINCHANNEL" and (self.channel == commands[1])):
+            self.publish(self.ctlchan,[':','ERR','CHANALREADYIN'])
             return
         if (commands[0] == "LEAVECHANNEL" and self.session.findChannel(commands[1]) != -1 and (self.channel == commands[1])):
             self.channel = ""
@@ -147,17 +155,19 @@ class User:
             self.publish(self.ctlchan,[':','ERR','CHANNOTFOUND'])
             return
         if (commands[0] == "MESSAGE") and (self.session.findChannel(commands[1]) != -1 and commands[1] != ""):
-           self.session.findChannel(commands[1]).pushToChannelFromUser(user.name,commands[2])
+           self.session.findChannel(commands[1]).pushToChannelFromUser(self.name,commands[2])
            return
         if (commands[0] == "CHANNAMES"):
+            response = [':','CHANNAMES']
             for channel in self.session.channelarr:
-                self.publish(self.ctlchan, [':', 'CHANNAME', channel.name])
+                response.append(channel.name)
+            self.publish(self.ctlchan,response)
             return
-    def __destructor__(self):
-        yield from self.subscription.unsubscribe()
+    def __destructor__(self): 
         obj = self.session.findChannel(self.channel)
         if (obj != -1):
             obj.removeUser(self.name)
+        yield from self.subscription.unsubscribe()
 
 
 class Server(ApplicationSession):
