@@ -218,7 +218,7 @@ class Server(ApplicationSession):
     def pruneUsers(self):
         for user in self.userarr:
             if((int(time.time() - user.systemtime)) > 5):
-                user.__destructor__()
+                yield from user.__destructor__()
                 self.removeUser(user)
 
     def onMainCtlEvent(self, *command):
