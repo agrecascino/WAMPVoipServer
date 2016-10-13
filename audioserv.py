@@ -58,7 +58,7 @@ class Channel:
                 if (username != obj):
                     user = self.session.findUser(username)
                     if(user != -1):
-                        user.publish(user.ctlchan,[':','MESSAGE',user.name,self.name,message])
+                        user.publish(user.ctlchan,[':','MESSAGE',name,self.name,message])
                     else:
                         self.removeUser(username)
 
@@ -163,8 +163,10 @@ class User:
                 response.append(channel.name)
             self.publish(self.ctlchan,response)
             return
+    @asyncio.coroutine
     def __destructor__(self): 
         obj = self.session.findChannel(self.channel)
+        print("AAAAAAAAAAAAAAAAAAAAAAAA")
         if (obj != -1):
             obj.removeUser(self.name)
         yield from self.subscription.unsubscribe()
