@@ -162,22 +162,20 @@ class User:
             for channel in self.session.channelarr:
                 response.append(channel.name)
             self.publish(self.ctlchan,response)
-            return
-    @asyncio.coroutine
-    def __destructor__(self): 
+            return 
+    async def __destructor__(self): 
         obj = self.session.findChannel(self.channel)
         print("AAAAAAAAAAAAAAAAAAAAAAAA")
         if (obj != -1):
             obj.removeUser(self.name)
-        yield from self.subscription.unsubscribe()
+        await self.subscription.unsubscribe()
 
 
 class Server(ApplicationSession):
-    @asyncio.coroutine
-    def pruneLoop(self):
+    async def pruneLoop(self):
         while True:
             self.pruneUsers()
-            yield from asyncio.sleep(1)
+            await asyncio.sleep(1)
 
     def findChannel(self,name):
         for channel in self.channelarr:
@@ -218,7 +216,7 @@ class Server(ApplicationSession):
     def pruneUsers(self):
         for user in self.userarr:
             if((int(time.time() - user.systemtime)) > 5):
-                yield from user.__destructor__()
+                user.__destructor__()
                 self.removeUser(user)
 
     def onMainCtlEvent(self, *command):
