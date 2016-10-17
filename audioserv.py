@@ -20,10 +20,10 @@ class Channel:
         return -1
 
     def addUser(self,name):
-        self.broadcastToChannelUsers(name,['NEWCHANUSER',self.name,name])
+        self.broadcastToChannelUsers(name,[':','NEWCHANUSER',self.name,name])
         self.users.append(name)
         listener = self.session.findUser(name)
-        names = [':','CHANUSERNAMES']
+        names = [':','CHANUSERNAMES',self.name]
         for username in self.users:
             user = self.session.findUser(username)
             if (user != -1):
@@ -38,7 +38,7 @@ class Channel:
             if(user != -1):
                 user.channel = ""
             self.users.remove(name)
-            self.broadcastToChannelUsers(name,['PRUNECHANUSER', self.name, name])
+            self.broadcastToChannelUsers(name,[':','PRUNECHANUSER', self.name, name])
         else:
             return -1
 
@@ -108,7 +108,7 @@ class User:
         self.session.publish(channel, encrypted_arguments)
         print("sent")
 
-    def ctlCallback(self, *commands_tuple):
+    async def ctlCallback(self, *commands_tuple):
         commands = []
         for i in range(len(commands_tuple)):
             commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("utf-8"))
@@ -132,7 +132,7 @@ class User:
             self.publish(self.ctlchan, [':', 'LEAVECHANNEL', commands[1]])
             return
         if (commands[0] == "QUIT"):
-            self.__destructor__()
+            await self.__destructor__()
             return
         elif(commands[0] == "LEAVECHANNEL"):
             self.publish(self.ctlchan, [':', 'ERR', 'CHANNOTFOUND'])
@@ -174,7 +174,7 @@ class User:
 class Server(ApplicationSession):
     async def pruneLoop(self):
         while True:
-            self.pruneUsers()
+            await self.pruneUsers()
             await asyncio.sleep(1)
 
     def findChannel(self,name):
@@ -213,10 +213,10 @@ class Server(ApplicationSession):
         else:
             return -1
 
-    def pruneUsers(self):
+    async def pruneUsers(self):
         for user in self.userarr:
-            if((int(time.time() - user.systemtime)) > 5):
-                user.__destructor__()
+            if((int(time.time() - user.systemtime)) > 10):
+                await user.__destructor__()
                 self.removeUser(user)
 
     def onMainCtlEvent(self, *command):
@@ -225,10 +225,10 @@ class Server(ApplicationSession):
             self.userarr.append(user)
             user.subscription = yield from self.subscribe(user.ctlCallback, user.ctlchan)
 
-    def onJoin(self, details):
+    async def onJoin(self, details):
         self.initialize()
-        yield from self.subscribe(self.onMainCtlEvent, u"com.audioctl.main")
-        yield from self.pruneLoop()
+        await self.subscribe(self.onMainCtlEvent, u"com.audioctl.main")
+        await self.pruneLoop()
 
     def initialize(self):
         self.userarr = []
