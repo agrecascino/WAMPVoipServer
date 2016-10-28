@@ -1,19 +1,19 @@
 {
-    "pid": 4473, 
-    "options": {
-        "config": "config.json", 
-        "cbdir": "/home/anthony/WAMPVOIPSERVER/crossbar_default/.crossbar", 
-        "logdir": null, 
-        "loglevel": "info", 
-        "colour": "auto", 
-        "reactor": null, 
-        "logformat": "standard", 
-        "cdc": false, 
-        "command": "start", 
-        "logtofile": false
-    }, 
     "argv": [
         "/usr/bin/crossbar", 
         "start"
-    ]
+    ], 
+    "options": {
+        "cbdir": "/home/anthony/WAMPVOIPServer/crossbar_default/.crossbar", 
+        "command": "start", 
+        "reactor": null, 
+        "cdc": false, 
+        "logdir": null, 
+        "logtofile": false, 
+        "colour": "auto", 
+        "logformat": "standard", 
+        "loglevel": "info", 
+        "config": "config.json"
+    }, 
+    "pid": 3884
 }
