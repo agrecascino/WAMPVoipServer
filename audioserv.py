@@ -27,7 +27,7 @@ class Channel:
         for username in self.users:
             user = self.session.findUser(username)
             if (user != -1):
-               names.append(username)
+                names.append(username)
         listener.publish(user.ctlchan, names)
 
 
@@ -93,16 +93,27 @@ class User:
            for i in range(len(arguments)):
                arguments[i] = str(arguments[i])
                print(arguments[i])
-           self.session.publish(channel,arguments)
+               self.session.publish(channel,arguments)
            print("snek")
            return
         for argument in arguments:
-            print(type(argument))
-            if not isinstance(argument, bytes):
-                bytearr = bytes(argument,'UTF-8')
-            else:
-                bytearr = argument
-            encrypted_arguments.append(str(base64.b64encode(rsa.encrypt(bytearr,self.pubkey)).decode('UTF-8')))
+           print(type(argument))
+           if not isinstance(argument, bytes):
+               bytearr = bytes(argument,'UTF-8')
+           else:
+               bytearr = argument
+           if len(bytearr) >= 181:
+               splitarr = []
+               splitarr.append(bytearr)
+               while(len(splitarr[len(splitarr) - 1]) >= 181):
+                   splitarr.append("\xffSM")
+                   splitarr.append(splitarr[len(splitarr) - 2][181:])
+                   splitarr[len(splitarr) - 3] = splitarr[len(splitarr) - 3][:181]
+               for i in range(len(splitarr)):
+                   splitarr[i] = (base64.b64encode(rsa.encrypt(splitarr[i],self.pubkey)).decode('UTF-8'))
+               encrypted_arguments += splitarr
+               continue
+           encrypted_arguments.append(str(base64.b64encode(rsa.encrypt(bytearr,self.pubkey)).decode('UTF-8')))
         for i in range(len(encrypted_arguments)):
             print(encrypted_arguments[i])
         self.session.publish(channel, encrypted_arguments)
@@ -111,7 +122,12 @@ class User:
     async def ctlCallback(self, *commands_tuple):
         commands = []
         for i in range(len(commands_tuple)):
-            commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("utf-8"))
+             commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("cp437"))
+        for i in range(len(commands)):
+            if(commands[i] == "\xffSM"):
+                commands[i - 1] += commands[i + 1]
+                del commands[i + 1]
+                del commands[i]
         if (commands[0] == "PING"):
             self.systemtime = int(time.time())
             return
@@ -155,14 +171,14 @@ class User:
             self.publish(self.ctlchan,[':','ERR','CHANNOTFOUND'])
             return
         if (commands[0] == "MESSAGE") and (self.session.findChannel(commands[1]) != -1 and commands[1] != ""):
-           self.session.findChannel(commands[1]).pushToChannelFromUser(self.name,commands[2])
-           return
+            self.session.findChannel(commands[1]).pushToChannelFromUser(self.name,commands[2])
+            return
         if (commands[0] == "CHANNAMES"):
-            response = [':','CHANNAMES']
-            for channel in self.session.channelarr:
+           response = [':','CHANNAMES']
+           for channel in self.session.channelarr:
                 response.append(channel.name)
-            self.publish(self.ctlchan,response)
-            return 
+           self.publish(self.ctlchan,response)
+           return 
     async def __destructor__(self): 
         obj = self.session.findChannel(self.channel)
         print("AAAAAAAAAAAAAAAAAAAAAAAA")
