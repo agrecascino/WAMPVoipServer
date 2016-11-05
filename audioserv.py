@@ -93,7 +93,7 @@ class User:
            for i in range(len(arguments)):
                arguments[i] = str(arguments[i])
                print(arguments[i])
-               self.session.publish(channel,arguments)
+           self.session.publish(channel,arguments)
            print("snek")
            return
         for argument in arguments:
@@ -109,7 +109,9 @@ class User:
                    splitarr.append("\xffSM")
                    splitarr.append(splitarr[len(splitarr) - 2][181:])
                    splitarr[len(splitarr) - 3] = splitarr[len(splitarr) - 3][:181]
+                   print("Checking splitting")
                for i in range(len(splitarr)):
+                   print(splitarr[i])
                    splitarr[i] = (base64.b64encode(rsa.encrypt(splitarr[i],self.pubkey)).decode('UTF-8'))
                encrypted_arguments += splitarr
                continue
@@ -122,7 +124,12 @@ class User:
     async def ctlCallback(self, *commands_tuple):
         commands = []
         for i in range(len(commands_tuple)):
-             commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("cp437"))
+             try:
+                commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("cp437"))
+             except:
+                print(commands_tuple[i-1])
+                print(commands_tuple[i])
+                return
         for i in range(len(commands)):
             if(commands[i] == "\xffSM"):
                 commands[i - 1] += commands[i + 1]
