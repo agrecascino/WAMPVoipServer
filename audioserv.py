@@ -106,7 +106,7 @@ class User:
                splitarr = []
                splitarr.append(bytearr)
                while(len(splitarr[len(splitarr) - 1]) >= 181):
-                   splitarr.append("\xffSM")
+                   splitarr.append(bytes("\xffSM",'CP437'))
                    splitarr.append(splitarr[len(splitarr) - 2][181:])
                    splitarr[len(splitarr) - 3] = splitarr[len(splitarr) - 3][:181]
                    print("Checking splitting")

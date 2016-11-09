@@ -3,17 +3,17 @@
         "/usr/bin/crossbar", 
         "start"
     ], 
-    "pid": 5008, 
     "options": {
-        "cdc": false, 
-        "reactor": null, 
-        "command": "start", 
-        "logtofile": false, 
-        "logdir": null, 
-        "colour": "auto", 
-        "config": "config.json", 
+        "cbdir": "/home/arecascino/WAMPVOIPServer/crossbar_default/.crossbar", 
         "logformat": "standard", 
+        "logdir": null, 
+        "config": "config.json", 
+        "command": "start", 
         "loglevel": "info", 
-        "cbdir": "/home/arecascino/WAMPVOIPServer/crossbar_default/.crossbar"
-    }
+        "reactor": null, 
+        "colour": "auto", 
+        "cdc": false, 
+        "logtofile": false
+    }, 
+    "pid": 11583
 }
