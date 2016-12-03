@@ -180,12 +180,26 @@ class User:
         if (commands[0] == "MESSAGE") and (self.session.findChannel(commands[1]) != -1 and commands[1] != ""):
             self.session.findChannel(commands[1]).pushToChannelFromUser(self.name,commands[2])
             return
+        if (commands[0] == "NODELIVERALL"):
+            channel = self.session.findChannel(self.channel)
+            for user in channel.users:
+                if (self.name == user):
+                   continue
+                userobj = self.session.findUser(user)
+                userobj.publish(userobj.ctlchan,[":","NODELIVER",self.name])
+            print('bdfdfgfdgfd')
+            return
+        if (commands[0] == "NODELIVER") and (self.session.findUser(commands[1]) != -1):
+            user = self.session.findUser(commands[1])
+            user.publish(user.ctlchan,[":",commands[0],commands[1]])
+            print('dfsdfsdffff')
+            return
         if (commands[0] == "CHANNAMES"):
-           response = [':','CHANNAMES']
-           for channel in self.session.channelarr:
+            response = [':','CHANNAMES']
+            for channel in self.session.channelarr:
                 response.append(channel.name)
-           self.publish(self.ctlchan,response)
-           return 
+            self.publish(self.ctlchan,response)
+            return 
     async def __destructor__(self): 
         obj = self.session.findChannel(self.channel)
         print("AAAAAAAAAAAAAAAAAAAAAAAA")
