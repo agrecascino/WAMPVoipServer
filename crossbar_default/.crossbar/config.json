@@ -9,24 +9,20 @@
                     "roles": [
                         {
                             "name": "anonymous",
-                            "permissions": [
-                                {
-                                    "uri": "",
-                                    "match": "prefix",
-                                    "allow": {
-                                        "call": true,
-                                        "register": true,
-                                        "publish": true,
-                                        "subscribe": true
-                                    },
-                                    "disclose": {
-                                        "caller": false,
-                                        "publisher": false
-                                    },
-                                    "cache": true
-                                }
-                            ]
-                        }
+							"authorizer": "com.authorizon.auth"
+                        },
+						{
+							"name": "authorizon",
+							"permissions": [
+								{
+									"uri": "com.authorizon.auth",
+									"match": "exact",
+									"allow": {
+										"register": true
+									}
+								}
+							]
+						}
                     ]
                 }
             ],
@@ -43,7 +39,22 @@
                             "directory": "../web"
                         },
                         "ws": {
-                            "type": "websocket"
+                            "type": "websocket",
+							"auth": {
+								"anonymous": {
+									"type": "static",
+									"role": "anonymous"
+								},
+								"ticket": {
+									"type": "static",
+									"principals": {
+										"authorizon": {
+											"ticket": "testpass",
+											"role": "authorizon"
+										}
+									}
+								}
+							}
                         }
                     }
                 }
@@ -55,7 +66,23 @@
                 "pythonpath": [
                     ".."
                 ]
-            }
+            },
+			"components": [
+				{
+					"type": "class",
+					"classname": "authorizer.Authorizon",
+					"realm": "realm1",
+					"transport": {
+						"type": "websocket",
+						"endpoint": {
+							"type": "tcp",
+							"host": "127.0.0.1",
+							"port": 8080
+						},
+						"url": "ws://127.0.0.1:8080/ws"
+					}
+				}
+			]
            
         }
     ]

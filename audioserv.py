@@ -66,7 +66,7 @@ class Channel:
         for username in self.users:
             obj = self.session.findUser(username)
             if(obj != -1):
-                obj.channel = ""
+                obj.channel.remove(self.name)
 
 
 
@@ -76,7 +76,7 @@ class User:
         self.ctlchan = ctlchan
         self.audiochan = audiochan
         self.session = session
-        self.channel = ""
+        self.channel = []
         self.role = "user"
         self.subscription = None
         self.systemtime = int(time.time())
@@ -138,34 +138,34 @@ class User:
         if (commands[0] == "PING"):
             self.systemtime = int(time.time())
             return
-        if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1 and self.channel != commands[1]):
-            self.channel = commands[1]
-            self.session.findChannel(commands[1]).addUser(self.name)
+        if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1 and not (commands[1] in self.channel)):
+            self.channel.append(commands[1])
             self.publish(self.ctlchan, [':', 'JOINCHANNEL', commands[1]])
+            self.session.findChannel(commands[1]).addUser(self.name)
             return
-        elif(commands[0] == "JOINCHANNEL" and self.channel != commands[1]):
-            self.publish(self.ctlchan, [':', 'ERR', 'CHANNOTFOUND'])
+        elif(commands[0] == "JOINCHANNEL" and not (commands[1] in self.channel)):
+            self.publish(self.ctlchan, [':', 'ERR', 'JOIN_CHANNOTFOUND',commands[1]])
             return
-        elif(commands[0] == "JOINCHANNEL" and (self.channel == commands[1])):
-            self.publish(self.ctlchan,[':','ERR','CHANALREADYIN'])
+        elif(commands[0] == "JOINCHANNEL" and not (commands[1] in self.channel)):
+            self.publish(self.ctlchan,[':','ERR','JOIN_CHANALREADYIN',commands[1]])
             return
-        if (commands[0] == "LEAVECHANNEL" and self.session.findChannel(commands[1]) != -1 and (self.channel == commands[1])):
-            self.channel = ""
-            self.session.findChannel(commands[1]).removeUser(self.name)
+        if (commands[0] == "LEAVECHANNEL" and self.session.findChannel(commands[1]) != -1 and (commands[1] in self.channel)):
+            self.channel.remove(commands[1])
             self.publish(self.ctlchan, [':', 'LEAVECHANNEL', commands[1]])
+            self.session.findChannel(commands[1]).removeUser(self.name)
+            return
+        elif(commands[0] == "LEAVECHANNEL"):
+            self.publish(self.ctlchan, [':', 'ERR', 'LEAVE_CHANNOTFOUND',commands[1]])
             return
         if (commands[0] == "QUIT"):
             await self.__destructor__()
-            return
-        elif(commands[0] == "LEAVECHANNEL"):
-            self.publish(self.ctlchan, [':', 'ERR', 'CHANNOTFOUND'])
             return
         if (commands[0] == "MKCHANNEL") and (self.session.findChannel(commands[1]) == -1 and commands[1] != ""):
             print('Creating channel with name ' + commands[1])
             self.session.channelarr.append(Channel(commands[1],self.session))
             return
         elif(commands[0] == "MKCHANNEL"):
-            self.publish(self.ctlchan, [':', 'ERR', 'CHANALREADYEXISTS'])
+            self.publish(self.ctlchan, [':', 'ERR', 'MK_CHANALREADYEXISTS',commands[1]])
             return
         if (commands[0] == "RMCHANNEL") and (self.session.findChannel(commands[1]) != -1 and commands[1] != ""):
             print('Deleting channel with name ' + commands[1])
@@ -175,22 +175,23 @@ class User:
                 self.session.removeChannel(obj)
             return
         elif(commands[0] == "RMCHANNEL"):
-            self.publish(self.ctlchan,[':','ERR','CHANNOTFOUND'])
+            self.publish(self.ctlchan,[':','ERR','RM_CHANNOTFOUND',commands[1]])
             return
         if (commands[0] == "MESSAGE") and (self.session.findChannel(commands[1]) != -1 and commands[1] != ""):
             self.session.findChannel(commands[1]).pushToChannelFromUser(self.name,commands[2])
             return
         if (commands[0] == "CHANNAMES"):
-           response = [':','CHANNAMES']
-           for channel in self.session.channelarr:
+            response = [':','CHANNAMES']
+            for channel in self.session.channelarr:
                 response.append(channel.name)
-           self.publish(self.ctlchan,response)
-           return 
+            self.publish(self.ctlchan,response)
+            return 
     async def __destructor__(self): 
-        obj = self.session.findChannel(self.channel)
-        print("AAAAAAAAAAAAAAAAAAAAAAAA")
-        if (obj != -1):
-            obj.removeUser(self.name)
+        for channel in self.channel:
+        	obj = self.session.findChannel(channel)
+        	print("AAAAAAAAAAAAAAAAAAAAAAAA")
+        	if (obj != -1):
+            		obj.removeUser(self.name)
         await self.subscription.unsubscribe()
 
 
@@ -208,7 +209,9 @@ class Server(ApplicationSession):
 
     def findUser(self,name):
         for user in self.userarr:
+            print(name)
             if (user.name == name):
+                print(name)
                 return user
         return -1
 
@@ -239,6 +242,7 @@ class Server(ApplicationSession):
     async def pruneUsers(self):
         for user in self.userarr:
             if((int(time.time() - user.systemtime)) > 10):
+                print("Deleting " + user.name)
                 await user.__destructor__()
                 self.removeUser(user)
 

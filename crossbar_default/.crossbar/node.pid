@@ -4,16 +4,16 @@
         "start"
     ], 
     "options": {
-        "cbdir": "/home/arecascino/WAMPVOIPServer/crossbar_default/.crossbar", 
+        "config": "config.json", 
+        "cdc": false, 
+        "cbdir": "/home/arecascino/Documents/WAMPVOIPSERVER/crossbar_default/.crossbar", 
         "logformat": "standard", 
         "logdir": null, 
-        "config": "config.json", 
-        "command": "start", 
-        "loglevel": "info", 
-        "reactor": null, 
         "colour": "auto", 
-        "cdc": false, 
-        "logtofile": false
+        "command": "start", 
+        "reactor": null, 
+        "logtofile": false, 
+        "loglevel": "info"
     }, 
-    "pid": 11583
+    "pid": 24170
 }
