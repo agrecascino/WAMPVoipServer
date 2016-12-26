@@ -9,17 +9,28 @@
                     "roles": [
                         {
                             "name": "anonymous",
-							"authorizer": "com.authorizon.auth"
+							"authorizer": "com.authorizon.auth",
+                            "disclose": {
+                                "caller": true,
+                                "publisher": true
+                            }
                         },
 						{
-							"name": "authorizon",
+							"name": "god",
 							"permissions": [
 								{
-									"uri": "com.authorizon.auth",
+								    "uri": "",
 									"match": "exact",
 									"allow": {
-										"register": true
-									}
+										"call": true,
+										"subscribe": true,
+										"register": true,
+										"publish": true
+									},
+                                    "disclose": {
+                                        "caller": true,
+                                        "publisher": true
+                                    }
 								}
 							]
 						}
@@ -51,6 +62,10 @@
 										"authorizon": {
 											"ticket": "testpass",
 											"role": "authorizon"
+										},
+										"god": {
+											"ticket": "bestpass",
+											"role": "god"
 										}
 									}
 								}
@@ -66,23 +81,7 @@
                 "pythonpath": [
                     ".."
                 ]
-            },
-			"components": [
-				{
-					"type": "class",
-					"classname": "authorizer.Authorizon",
-					"realm": "realm1",
-					"transport": {
-						"type": "websocket",
-						"endpoint": {
-							"type": "tcp",
-							"host": "127.0.0.1",
-							"port": 8080
-						},
-						"url": "ws://127.0.0.1:8080/ws"
-					}
-				}
-			]
+            }
            
         }
     ]

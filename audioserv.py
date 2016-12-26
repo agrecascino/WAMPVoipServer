@@ -5,6 +5,14 @@ import time
 from autobahn.wamp.types import SubscribeOptions
 from autobahn.asyncio.wamp import ApplicationSession, ApplicationRunner
 import base64
+
+class Rule:
+	def __init__(self,session,uri,action,allow):
+		self.session = session
+		self.uri = uri
+		self.action = action
+		self.allow = allow
+
 class Channel:
     def __init__(self, name,session):
         self.name = name
@@ -71,7 +79,7 @@ class Channel:
 
 
 class User:
-    def __init__(self, name, ctlchan, audiochan, session,pubkey):
+    def __init__(self, name, ctlchan, audiochan, session):
         self.name = name
         self.ctlchan = ctlchan
         self.audiochan = audiochan
@@ -80,62 +88,24 @@ class User:
         self.role = "user"
         self.subscription = None
         self.systemtime = int(time.time())
-        self.pubkey = rsa.PublicKey.load_pkcs1(base64.b64decode(pubkey),'DER')
+        self.ft = True
         print("Making user with name " + self.name)
         print("Attaching channel " + self.ctlchan)
-        self.publish(self.ctlchan,['~','PUBKEY',base64.b64encode(self.session.serverpubkey.save_pkcs1('DER')).decode('UTF-8')])
 
     def publish(self, channel, arguments):
         print("publishing")
-        encrypted_arguments = []
-        if arguments[0] == '~':
-           print("sneksnek")
-           for i in range(len(arguments)):
-               arguments[i] = str(arguments[i])
-               print(arguments[i])
-           self.session.publish(channel,arguments)
-           print("snek")
-           return
-        for argument in arguments:
-           print(type(argument))
-           if not isinstance(argument, bytes):
-               bytearr = bytes(argument,'UTF-8')
-           else:
-               bytearr = argument
-           if len(bytearr) >= 181:
-               splitarr = []
-               splitarr.append(bytearr)
-               while(len(splitarr[len(splitarr) - 1]) >= 181):
-                   splitarr.append(bytes("\xffSM",'CP437'))
-                   splitarr.append(splitarr[len(splitarr) - 2][181:])
-                   splitarr[len(splitarr) - 3] = splitarr[len(splitarr) - 3][:181]
-                   print("Checking splitting")
-               for i in range(len(splitarr)):
-                   print(splitarr[i])
-                   splitarr[i] = (base64.b64encode(rsa.encrypt(splitarr[i],self.pubkey)).decode('UTF-8'))
-               encrypted_arguments += splitarr
-               continue
-           encrypted_arguments.append(str(base64.b64encode(rsa.encrypt(bytearr,self.pubkey)).decode('UTF-8')))
-        for i in range(len(encrypted_arguments)):
-            print(encrypted_arguments[i])
-        self.session.publish(channel, encrypted_arguments)
-        print("sent")
+        print(channel)
+        print(arguments)
+        self.session.publish(channel,arguments)
 
     async def ctlCallback(self, *commands_tuple):
         commands = []
         for i in range(len(commands_tuple)):
-             try:
-                commands.append((rsa.decrypt(base64.b64decode(commands_tuple[i]),self.session.serverprivkey)).decode("cp437"))
-             except:
-                print(commands_tuple[i-1])
-                print(commands_tuple[i])
-                return
-        for i in range(len(commands)):
-            if(commands[i] == "\xffSM"):
-                commands[i - 1] += commands[i + 1]
-                del commands[i + 1]
-                del commands[i]
+            commands.append(commands_tuple[i])
         if (commands[0] == "PING"):
+            if(self.ft):
+                self.publish(self.ctlchan,[':','HELLO'])
+                self.ft = False
             self.systemtime = int(time.time())
             return
         if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1 and not (commands[1] in self.channel)):
@@ -196,6 +166,26 @@ class User:
 
 
 class Server(ApplicationSession):
+    def isAllowed(self, session, uri, action):
+        for rule in self.rulearr:
+            if rule.session == session and rule.uri == uri and rule.action == action:
+               print("match")
+               return True
+        return False
+
+    def authorize(self, session, uri, action):
+        s = {'allow': self.isAllowed(session["session"],uri,action), 'disclose': True, 'cache': True}
+        if (uri == 'com.audiomain'):
+            s = {'allow': True, 'disclose': True, 'cache': True}
+        print(s)
+        return s
+
+    def ruleModify(self,command):
+        if (not command[4]):
+            self.rulearr.append(Rule(command[0], command[1], command[2], command[3]))
+        else:
+            self.rulearr.remove(Rule(command[0], command[1], command[2], command[3]))
+
     async def pruneLoop(self):
         while True:
             await self.pruneUsers()
@@ -246,21 +236,35 @@ class Server(ApplicationSession):
                 await user.__destructor__()
                 self.removeUser(user)
 
-    def onMainCtlEvent(self, *command):
+    def onMainCtlEvent(self, *command, details):
         if(command[0] == "NICK" and (self.findUser(command[1])) == -1):
-            user = User(command[1], 'com.audioctl.' + command[1], 'com.audiodata.' + command[1], self,command[2])
+            self.ruleModify([details.publisher,'com.audioctl.' + command[1],'publish',True,False])
+            self.ruleModify([details.publisher,'com.audioctl.' + command[1],'subscribe',True,False])
+            user = User(command[1], 'com.audioctl.' + command[1], 'com.audiodata.' + command[1], self)
             self.userarr.append(user)
             user.subscription = yield from self.subscribe(user.ctlCallback, user.ctlchan)
 
+    def onConnect(self):
+        self.rulearr = []
+        self.join(self.config.realm, [u'ticket'],u'god')
+
+    def onChallenge(self, challenge):
+        if challenge.method == u'ticket':
+            return u'bestpass'
+        else:
+            raise Exception('Invalid authmethod {}'.format(challenge.method))
+
+
+
     async def onJoin(self, details):
         self.initialize()
-        await self.subscribe(self.onMainCtlEvent, u"com.audioctl.main")
+        await self.register(self.authorize, u'com.authorizon.auth')
+        await self.subscribe(self.onMainCtlEvent, u"com.audiomain", options=SubscribeOptions(details_arg='details'))
         await self.pruneLoop()
 
     def initialize(self):
         self.userarr = []
         self.channelarr = []
-        (self.serverpubkey, self.serverprivkey) = rsa.newkeys(1536)
 
 
 runner = ApplicationRunner(u"ws://127.0.0.1:8080/ws", u"realm1")
