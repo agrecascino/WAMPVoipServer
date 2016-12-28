@@ -44,7 +44,7 @@ class Channel:
         if(rv != -1):
             user = self.session.findUser(name)
             if(user != -1):
-                user.channel = ""
+                user.channel.remove(self.name)
             self.users.remove(name)
             self.broadcastToChannelUsers(name,[':','PRUNECHANUSER', self.name, name])
         else:
@@ -79,7 +79,7 @@ class Channel:
 
 
 class User:
-    def __init__(self, name, ctlchan, audiochan, session):
+    def __init__(self, name, ctlchan, audiochan, session, userid):
         self.name = name
         self.ctlchan = ctlchan
         self.audiochan = audiochan
@@ -89,6 +89,9 @@ class User:
         self.subscription = None
         self.systemtime = int(time.time())
         self.ft = True
+        self.userid = userid
+        self.session.ruleModify([self.userid,self.ctlchan,'publish',True,False])
+        self.session.ruleModify([self.userid,self.ctlchan,'subscribe',True,False])
         print("Making user with name " + self.name)
         print("Attaching channel " + self.ctlchan)
 
@@ -104,8 +107,9 @@ class User:
             commands.append(commands_tuple[i])
         if (commands[0] == "PING"):
             if(self.ft):
+                self.session.ruleModify([self.userid,self.audiochan,'register',True,False])
                 self.publish(self.ctlchan,[':','HELLO'])
-                self.ft = False
+                self.ft = False 
             self.systemtime = int(time.time())
             return
         if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1 and not (commands[1] in self.channel)):
@@ -156,7 +160,11 @@ class User:
                 response.append(channel.name)
             self.publish(self.ctlchan,response)
             return 
-    async def __destructor__(self): 
+    async def __destructor__(self):
+        if (not self.ft):
+            self.session.ruleModify([self.userid,self.ctlchan,'register',True,True])
+        self.session.ruleModify([self.userid,self.ctlchan,'publish',True,True])
+        self.session.ruleModify([self.userid,self.ctlchan,'subscribe',True,True])
         for channel in self.channel:
         	obj = self.session.findChannel(channel)
         	print("AAAAAAAAAAAAAAAAAAAAAAAA")
@@ -174,6 +182,9 @@ class Server(ApplicationSession):
         return False
 
     def authorize(self, session, uri, action):
+        print(session)
+        print(uri)
+        print(action)
         s = {'allow': self.isAllowed(session["session"],uri,action), 'disclose': True, 'cache': True}
         if (uri == 'com.audiomain'):
             s = {'allow': True, 'disclose': True, 'cache': True}
@@ -238,11 +249,10 @@ class Server(ApplicationSession):
 
     def onMainCtlEvent(self, *command, details):
         if(command[0] == "NICK" and (self.findUser(command[1])) == -1):
-            self.ruleModify([details.publisher,'com.audioctl.' + command[1],'publish',True,False])
-            self.ruleModify([details.publisher,'com.audioctl.' + command[1],'subscribe',True,False])
-            user = User(command[1], 'com.audioctl.' + command[1], 'com.audiodata.' + command[1], self)
+            user = User(command[1], 'com.audioctl.' + command[1], 'com.audiorpc.' + command[1], self, details.publisher)
             self.userarr.append(user)
             user.subscription = yield from self.subscribe(user.ctlCallback, user.ctlchan)
+            self.publish('com.audiomain',[':','READY',str(details.publisher)])
 
     def onConnect(self):
         self.rulearr = []
