@@ -35,6 +35,8 @@ class Channel:
         for username in self.users:
             user = self.session.findUser(username)
             if (user != -1):
+                self.session.ruleModify([listener.userid,user.audiochan,'call',True,False])
+                self.session.ruleModify([user.userid,listener.audiochan,'call',True,False])
                 names.append(username)
         listener.publish(user.ctlchan, names)
 
@@ -45,6 +47,11 @@ class Channel:
             user = self.session.findUser(name)
             if(user != -1):
                 user.channel.remove(self.name)
+                for username in self.users:
+                    listener = self.session.findUser(username)
+                    if (listener != 1):
+                        self.session.ruleModify([user.userid,listener.audiochan,'call',True,True])
+                        self.session.ruleModify([listener.userid,user.audiochan,'call',True,True])
             self.users.remove(name)
             self.broadcastToChannelUsers(name,[':','PRUNECHANUSER', self.name, name])
         else:
@@ -74,7 +81,7 @@ class Channel:
         for username in self.users:
             obj = self.session.findUser(username)
             if(obj != -1):
-                obj.channel.remove(self.name)
+                self.removeUser(username)
 
 
 
@@ -96,9 +103,7 @@ class User:
         print("Attaching channel " + self.ctlchan)
 
     def publish(self, channel, arguments):
-        print("publishing")
-        print(channel)
-        print(arguments)
+        print("publishing") 
         self.session.publish(channel,arguments)
 
     async def ctlCallback(self, *commands_tuple):
@@ -162,7 +167,10 @@ class User:
             return 
     async def __destructor__(self):
         if (not self.ft):
-            self.session.ruleModify([self.userid,self.ctlchan,'register',True,True])
+            try:
+                self.session.ruleModify([self.userid,self.audiochan,'register',True,True])
+            except:
+                 print("fuck")
         self.session.ruleModify([self.userid,self.ctlchan,'publish',True,True])
         self.session.ruleModify([self.userid,self.ctlchan,'subscribe',True,True])
         for channel in self.channel:
