@@ -21,6 +21,7 @@ class Channel:
 
     def publish(self,channel,args):
         self.session.publish(channel,args)
+
     def findUser(self,name):
         for username in self.users:
             if(username == name):
@@ -166,44 +167,48 @@ class User:
             self.publish(self.ctlchan,response)
             return 
     async def __destructor__(self):
+        try:
+            await self.subscription.unsubscribe()
+        except Exception as e:
+            print(e)
         if (not self.ft):
-            try:
-                self.session.ruleModify([self.userid,self.audiochan,'register',True,True])
-            except:
-                 print("fuck")
+            self.session.ruleModify([self.userid,self.audiochan,'register',True,True])
         self.session.ruleModify([self.userid,self.ctlchan,'publish',True,True])
         self.session.ruleModify([self.userid,self.ctlchan,'subscribe',True,True])
+        print("testou")
         for channel in self.channel:
         	obj = self.session.findChannel(channel)
         	print("AAAAAAAAAAAAAAAAAAAAAAAA")
         	if (obj != -1):
             		obj.removeUser(self.name)
-        await self.subscription.unsubscribe()
-
+        print("supertest")
 
 class Server(ApplicationSession):
     def isAllowed(self, session, uri, action):
         for rule in self.rulearr:
-            if rule.session == session and rule.uri == uri and rule.action == action:
-               print("match")
+            if rule.session == session and rule.uri == uri and rule.action == action and rule.allow == True:
                return True
         return False
 
     def authorize(self, session, uri, action):
-        print(session)
-        print(uri)
-        print(action)
         s = {'allow': self.isAllowed(session["session"],uri,action), 'disclose': True, 'cache': True}
         if (uri == 'com.audiomain'):
             s = {'allow': True, 'disclose': True, 'cache': True}
-        print(s)
         return s
 
     def ruleModify(self,command):
         if (not command[4]):
             self.rulearr.append(Rule(command[0], command[1], command[2], command[3]))
         else:
-            self.rulearr.remove(Rule(command[0], command[1], command[2], command[3]))
+            i = -1
+            for rule in range(len(self.rulearr)):
+                print(rule)
+                if (self.rulearr[rule].session == command[0]) and (self.rulearr[rule].uri == command[1]) and (self.rulearr[rule].action == command[2]) and (self.rulearr[rule].allow == command[3]):
+                   i = rule
+            if (i != -1):
+               del self.rulearr[i]
+            
+            #self.rulearr.remove(Rule(command[0], command[1], command[2], command[3]))
 
     async def pruneLoop(self):
         while True:
@@ -259,7 +264,7 @@ class Server(ApplicationSession):
         if(command[0] == "NICK" and (self.findUser(command[1])) == -1):
             user = User(command[1], 'com.audioctl.' + command[1], 'com.audiorpc.' + command[1], self, details.publisher)
             self.userarr.append(user)
-            user.subscription = yield from self.subscribe(user.ctlCallback, user.ctlchan)
+            user.subscription = self.subscribe(user.ctlCallback, user.ctlchan)
             self.publish('com.audiomain',[':','READY',str(details.publisher)])
 
     def onConnect(self):
