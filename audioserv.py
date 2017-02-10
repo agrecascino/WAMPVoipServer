@@ -1,6 +1,5 @@
 import asyncio
 from asyncio import coroutine
-import rsa
 import time
 from autobahn.wamp.types import SubscribeOptions
 from autobahn.asyncio.wamp import ApplicationSession, ApplicationRunner

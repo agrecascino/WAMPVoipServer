@@ -19,8 +19,7 @@
 							"name": "god",
 							"permissions": [
 								{
-								    "uri": "",
-									"match": "exact",
+								    "uri": "*",
 									"allow": {
 										"call": true,
 										"subscribe": true,
@@ -36,7 +35,7 @@
 						}
                     ]
                 }
-            ],
+            ],	
             "transports": [
                 {
                     "type": "web",
@@ -59,10 +58,6 @@
 								"ticket": {
 									"type": "static",
 									"principals": {
-										"authorizon": {
-											"ticket": "testpass",
-											"role": "authorizon"
-										},
 										"god": {
 											"ticket": "bestpass",
 											"role": "god"
