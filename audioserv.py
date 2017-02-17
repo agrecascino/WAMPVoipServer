@@ -4,6 +4,7 @@ import time
 from autobahn.wamp.types import SubscribeOptions
 from autobahn.asyncio.wamp import ApplicationSession, ApplicationRunner
 import base64
+import datetime
 
 class Rule:
 	def __init__(self,session,uri,action,allow):
@@ -97,10 +98,12 @@ class User:
         self.systemtime = int(time.time())
         self.ft = True
         self.userid = userid
+        self.dead = False
         self.session.ruleModify([self.userid,self.ctlchan,'publish',True,False])
         self.session.ruleModify([self.userid,self.ctlchan,'subscribe',True,False])
         print("Making user with name " + self.name)
         print("Attaching channel " + self.ctlchan)
+        print("Time at object creation" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"))
 
     def publish(self, channel, arguments):
         print("publishing") 
@@ -112,9 +115,11 @@ class User:
             commands.append(commands_tuple[i])
         if (commands[0] == "PING"):
             if(self.ft):
+                print("Time at entering ping block" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"))
                 self.session.ruleModify([self.userid,self.audiochan,'register',True,False])
                 self.publish(self.ctlchan,[':','HELLO'])
-                self.ft = False 
+                self.ft = False
+                print("Time at exiting ping block" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"))
             self.systemtime = int(time.time())
             return
         if (commands[0] == "JOINCHANNEL" and self.session.findChannel(commands[1]) != -1 and not (commands[1] in self.channel)):
@@ -181,6 +186,7 @@ class User:
         	if (obj != -1):
             		obj.removeUser(self.name)
         print("supertest")
+        self.dead = True
 
 class Server(ApplicationSession):
     def isAllowed(self, session, uri, action):
@@ -254,16 +260,18 @@ class Server(ApplicationSession):
 
     async def pruneUsers(self):
         for user in self.userarr:
-            if((int(time.time() - user.systemtime)) > 10):
+            if(((int(time.time() - user.systemtime)) > 10)):
                 print("Deleting " + user.name)
-                await user.__destructor__()
+                if(not user.dead):
+                        await user.__destructor__()
                 self.removeUser(user)
 
     def onMainCtlEvent(self, *command, details):
         if(command[0] == "NICK" and (self.findUser(command[1])) == -1):
+            print("Time at connect" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"))
             user = User(command[1], 'com.audioctl.' + command[1], 'com.audiorpc.' + command[1], self, details.publisher)
             self.userarr.append(user)
-            user.subscription = self.subscribe(user.ctlCallback, user.ctlchan)
+            user.subscription = yield from self.subscribe(user.ctlCallback, user.ctlchan)
             self.publish('com.audiomain',[':','READY',str(details.publisher)])
 
     def onConnect(self):
