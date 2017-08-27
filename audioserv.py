@@ -117,7 +117,7 @@ class User:
             if(self.ft):
                 print("Time at entering ping block" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"))
                 self.session.ruleModify([self.userid,self.audiochan,'register',True,False])
-                self.publish(self.ctlchan,[':','HELLO'])
+                self.publish(self.ctlchan,[':','HELLO','127.0.0.1'])
                 self.ft = False
                 print("Time at exiting ping block" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S:%f"))
             self.systemtime = int(time.time())
@@ -179,13 +179,10 @@ class User:
             self.session.ruleModify([self.userid,self.audiochan,'register',True,True])
         self.session.ruleModify([self.userid,self.ctlchan,'publish',True,True])
         self.session.ruleModify([self.userid,self.ctlchan,'subscribe',True,True])
-        print("testou")
         for channel in self.channel:
         	obj = self.session.findChannel(channel)
-        	print("AAAAAAAAAAAAAAAAAAAAAAAA")
         	if (obj != -1):
             		obj.removeUser(self.name)
-        print("supertest")
         self.dead = True
 
 class Server(ApplicationSession):
@@ -272,7 +269,7 @@ class Server(ApplicationSession):
             user = User(command[1], 'com.audioctl.' + command[1], 'com.audiorpc.' + command[1], self, details.publisher)
             self.userarr.append(user)
             user.subscription = yield from self.subscribe(user.ctlCallback, user.ctlchan)
-            self.publish('com.audiomain',[':','READY',str(details.publisher)])
+            self.publish('com.audiomain',[':','READY',str(details.publisher),'127.0.0.1'])
 
     def onConnect(self):
         self.rulearr = []
